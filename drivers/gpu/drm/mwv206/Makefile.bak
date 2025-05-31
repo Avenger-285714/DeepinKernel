@@ -1,0 +1,244 @@
+#include Makefile.in
+# set build path & build target
+#HOST=linux-x86
+#HOST=linux-x8664
+#HOST=ft1500a
+#HOST=jari-ft1500a
+#TARGET=xinluxa
+#TARGET=xinluxb
+#TARGET=truechip
+#PCIEBAR=
+#PCIEBAR=64
+
+ifeq ($(TARGET),xinluxa)
+CFLAGS=-D__CHIP_SELECT__=__FPGA_XINLUX_A__
+else ifeq ($(TARGET),xinluxb)
+CFLAGS=-D__CHIP_SELECT__=__FPGA_XINLUX_B__
+else ifeq ($(TARGET),truechip)
+CFLAGS=-D__CHIP_SELECT__=__TRUE_CHIP__
+else
+TARGET=truechip
+CFLAGS=-D__CHIP_SELECT__=__TRUE_CHIP__
+#$(error "Please set TARGET <xinluxa, xinluxb, truechip>")
+endif
+
+ifeq ($(OS),)
+##$(warning "Auto select the OS!")
+#
+#	result=$(shell cat /proc/version | grep -i NeoKylin)
+#	ifneq ($(result),)
+#		OS=neokylin
+#		export OS=neokylin
+#	endif
+#
+#	result=$(shell cat /proc/version | grep kylin)
+#	ifneq ($(result),)
+#		OS=kylin
+#		export OS=kylin
+#	endif
+#
+#
+#	result=$(shell cat /proc/version | grep -e deepin -e uos)
+#	ifneq ($(result),)
+#		OS=deepin
+#		export OS=deepin
+#	endif
+#	
+#	result=$(shell cat /proc/version | grep -i jari)
+#	ifneq ($(result),)
+#		OS=jari
+#		export OS=jari
+#	endif
+#	
+#	result=$(shell cat /proc/version | grep -i ky3)
+#	ifneq ($(result),)
+#		OS=deepin
+		export OS=deepin
+#	endif
+#	
+#	result=$(shell cat /proc/version | grep -i ky10)
+#	ifneq ($(result),)
+#		OS=ky10
+#		export OS=ky10
+#	endif
+#	
+$(warning "Auto select OS= $(OS)")
+endif	
+
+ifeq ($(CPU),)
+#$(warning "Auto select the CPU!")
+
+	result=$(shell LANG=en lscpu | grep -i Architecture | grep -i aarch64)
+	ifneq ($(result),)
+		CPU=aarch64
+		export CPU=aarch64
+	endif
+	
+	result=$(shell LANG=en lscpu | grep -i Architecture | grep -i mips64)
+	ifneq ($(result),)
+		CPU=mips64
+		export CPU=mips64
+	endif
+	
+	result=$(shell LANG=en lscpu | grep -i Architecture | grep -i x86_64)
+	ifneq ($(result),)
+		CPU=x86_64
+		export CPU=x86_64
+	endif
+	ifeq ($(CPU),)
+		export CPU=$(shell uname -m)
+	endif
+$(warning "Auto select CPU= $(CPU)")
+endif
+HOST=$(OS)-$(CPU)
+
+ifeq ($(CPU),aarch64)
+	CFLAGS+=-D_MWV206_CPU_=_MWV206_AARCH64_
+else ifeq ($(CPU),mips64)
+	CFLAGS+=-D_MWV206_CPU_=_MWV206_LOONGSON_
+else ifeq ($(CPU),x86_64)
+
+else ifeq ($(CPU),x86)
+
+else ifeq ($(CPU),x8664)
+
+else
+$(error "Please set CPU ")
+endif
+
+XORGPATH=/usr/lib/xorg/modules/
+ifeq ($(OS),linux)
+	ifeq ($(CPU),x86)
+		SYSTEMLIBPATH=/usr/lib/i386-linux-gnu/
+		#CFLAGS+=-D__DEBIAN_ZEBU__	
+	else ifeq ($(CPU),x8664)
+		#SYSTEMLIBPATH=/lib64/
+		SYSTEMLIBPATH=/usr/lib/x86_64-linux-gnu/
+	endif
+else ifeq ($(OS),jari)
+	SYSTEMLIBPATH=/usr/lib/
+	CFLAGS+=-D_MWV206_OS_=_MWV206_JARI_
+	ifeq ($(CPU),loongson)
+		CFLAGS+=-D__KERNEL_BITWIDTH_DIFFFROM_USER__
+	endif
+else ifeq ($(OS),neokylin)
+	XORGPATH=/usr/lib64/xorg/modules/
+	SYSTEMLIBPATH=/lib64/
+	CFLAGS+=-D_MWV206_OS_=_MWV206_NEOKYLIN_
+else ifeq ($(OS),kylin)
+	SYSTEMLIBPATH=/usr/lib/aarch64-linux-gnu/
+	CFLAGS+=-D_MWV206_OS_=_MWV206_KYLIN_
+#	CFLAGS+=-D__MWV206_GLX_PERF__
+	ifeq ($(CPU),x86_64)
+		SYSTEMLIBPATH=/usr/lib/x86_64-linux-gnu/
+	endif
+	ifeq ($(CPU),mips64)
+		SYSTEMLIBPATH=/usr/lib/mips64el-linux-gnu
+	endif	
+else ifeq ($(OS),deepin)
+	SYSTEMLIBPATH=/usr/lib/aarch64-linux-gnu/
+	CFLAGS+=-D_MWV206_OS_=_MWV206_DEEPIN_
+	CFLAGS+= -Wno-cast-function-type -Wno-implicit-fallthrough -Wno-missing-field-initializers
+	ifeq ($(CPU),mips64)
+		SYSTEMLIBPATH=/usr/lib/mips64el-linux-gnuabi64/
+	endif
+
+else ifeq ($(OS),ky10)
+	XORGPATH=/usr/lib64/xorg/modules/
+	CFLAGS+=-D_MWV206_OS_=_MWV206_KY10_
+	CFLAGS+= -Wno-implicit-fallthrough -Wno-missing-field-initializers
+	SYSTEMLIBPATH=/usr/lib64/
+else
+$(error "Please set OS ")
+endif
+
+
+#<linux-x86, linux-x8664, kylin-ft, neokylin-loongson, neokylin-huawei, jari-loongson, jari-ft1500a, deepin-huawei,deepin-loongson>
+
+
+
+LIBGLPATH=$(SYSTEMLIBPATH)/mwv206
+XORGCONFPATH=/usr/share/X11/xorg.conf.d/
+
+platform=$(HOST)-$(TARGET)
+
+ifeq ($(PCIEBAR), 64)
+CFLAGS+=-D__PCIE_64BIT_BAR__
+endif
+
+#$(warning "Building for $(platform)")
+
+PWD := $(shell pwd)
+GLJ206ROOTPATH:=$(PWD)/../../../
+# TARGET=linux-$(PLATFORM)
+GLJ206OUTPUTLIBPATH=$(GLJ206ROOTPATH)/lib/$(platform)
+GLJ206INPUTLIBPATH=$(GLJ206ROOTPATH)/../glpublic/lib/$(HOST)
+GLJ206INCLUDEPATH=$(GLJ206ROOTPATH)/include
+GLJ206SRCPATH=$(GLJ206ROOTPATH)/src
+#DSTPATH:=$(GLJ206ROOTPATH)/../unittest206/lib/$(GLJLIBOUTPUTPATH)/
+
+# set compiler
+CC= $(CROSS_COMPILER)gcc
+CFLAGS+=-O2
+#CFLAGS+=-O0 -g
+#CFLAGS+=-v -save-temps 
+CFLAGS+=-fstack-protector-strong -Wl,-z,relro -z,now -Wl,-z,-Wstramplines,noexecstack -fPIC -D_FORTIFY_SOURCE=2
+CFLAGS+=-D__MWV206_SYSLIBPATH__="\"$(SYSTEMLIBPATH)\""
+CFLAGS+=-fno-strict-aliasing -Wall -W -Wextra -Wno-unused-label -Wno-unused-function -Wno-pointer-sign -Wno-unused-parameter -Wno-missing-braces -Wno-deprecated-declarations -Werror 
+#hhl:cc1: error: unrecognized command line option "-Wno-sizeof-pointer-memaccess" [-Werror]
+CFLAGS+=-Wno-sizeof-pointer-memaccess
+CFLAGS+=-Wno-builtin-macro-redefined -U__FILE__ -D__FILE__='"$(subst $(dir $<), , $<)"'
+#CFLAGS+= -fdiagnostics-color=auto
+CFLAGS+=-I$(GLJ206SRCPATH)/include -I$(GLJ206INCLUDEPATH)
+#CFLAGS+=-D__MWV206_DEBUG_VERSION__
+
+LD = ${CROSS_COMPILE}ld
+LDFLAGS += -shared -nostdlib
+LDFLAGS += -z relro -z now
+LDFLAGS += -L$(GLJ206INPUTLIBPATH)
+LDFLAGS += -L$(GLJ206OUTPUTLIBPATH)
+LDFLAGS += -L$(SYSTEMLIBPATH)
+
+
+AR = ${CROSS_COMPILE}ar
+ARFLAGS = -cr 
+
+
+#from kernel build
+ifneq ($(KERNELRELEASE),)
+#from shell build
+else
+	KERNELDIR	:= /lib/modules/$(shell uname -r)/build
+	CWD			:= $(shell pwd)/mwv206linuxdev/
+default:
+	make -C $(KERNELDIR) M=$(CWD) modules
+	#cp -f $(CWD)/*.ko $(CWD)/*.[ios] $(CWD)/.*.cmd $(CWD)/../mwv206hal/*.[ios] $(CWD)/../mwv206hal/.*.o.cmd .
+	###copy mwv206.ko to `mwv206kernel_publish/lib`
+	mkdir -p $(CWD)/../lib/$(platform)
+	cp $(CWD)/mwv206.ko $(CWD)/../lib/$(platform)
+ifeq ($(shell if [ -d $(GLJ206ROOTPATH)/../lib ]; then echo "yes"; else echo "no"; fi;),yes)
+	###copy mwv206.ko to glj206/lib
+	mkdir -p $(GLJ206ROOTPATH)/../lib/$(platform)
+	cp $(CWD)/mwv206.ko $(GLJ206ROOTPATH)/../lib/$(platform)
+endif
+clean:
+	rm -rf *.[iso] 
+	rm -rf *.ko
+	rm -rf .*.cmd
+	rm -rf $(shell pwd)/mwv206hal/*.[iso]
+	rm -rf $(shell pwd)/mwv206hal/.*.o.cmd
+	make -C $(KERNELDIR) M=$(CWD) clean
+depend:
+	make -C $(KERNELDIR) M=$(CWD) depend 
+install:
+
+ifeq ($(OS), deepin)
+	mkdir -p /lib/modules/$(shell uname -r)/kernel/drivers/gpu/jingjia
+	sudo cp $(GLJ206OUTPUTLIBPATH)/mwv206.ko /lib/modules/$(shell uname -r)/kernel/drivers/gpu/jingjia/mwv206.ko
+else	
+
+	sudo cp $(GLJ206OUTPUTLIBPATH)/mwv206.ko /lib/modules/$(shell uname -r)/kernel/mwv206.ko
+endif
+	sudo depmod
+	sync
+endif
